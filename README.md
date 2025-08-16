@@ -12,9 +12,8 @@ A full-stack web application that uses AI to summarize meeting transcripts and s
 
 ## 🚀 Live Demo
 
-**Deployed Application**: [https://ai-meeting-summarizer.onrender.com](https://ai-meeting-summarizer.onrender.com)
-
-**Developer**: Shobhit-Lumio
+**Deployed Application**:[https://ai-meeting-summarizer.onrender.com](https://ai-meeting-summarizer.onrender.com)
+**Developer**: Shobhit
 
 ## 🛠️ Tech Stack
 
