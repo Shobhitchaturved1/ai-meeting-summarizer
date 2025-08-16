@@ -2,10 +2,7 @@ from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 import os
 from dotenv import load_dotenv
-import groq
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import requests
 import json
 
 # Load environment variables
@@ -14,31 +11,18 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)
 
-# Initialize Groq client
+# Initialize Groq API configuration
 api_key = os.getenv('GROQ_API_KEY')
 print(f"🔍 Checking API key: {'Found' if api_key else 'NOT FOUND'}")
 if api_key:
     print(f"🔑 API key starts with: {api_key[:10]}...")
 
-if not api_key:
-    print("❌ GROQ_API_KEY not found in environment variables")
-    print("Please check your environment variables")
-    groq_client = None
-else:
-    try:
-        # Use a more compatible initialization method
-        groq_client = groq.Groq(api_key=api_key)
-        print(f"✅ Groq client initialized with API key: {api_key[:10]}...")
-    except Exception as e:
-        print(f"❌ Error initializing Groq client: {e}")
-        print("Trying alternative initialization...")
-        try:
-            # Alternative initialization without extra parameters
-            groq_client = groq.Groq(api_key=api_key)
-            print(f"✅ Groq client initialized (alternative method)")
-        except Exception as e2:
-            print(f"❌ Alternative initialization also failed: {e2}")
-            groq_client = None
+# Groq API configuration
+GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
+GROQ_HEADERS = {
+    "Authorization": f"Bearer {api_key}",
+    "Content-Type": "application/json"
+} if api_key else {}
 
 @app.route('/')
 def index():
@@ -54,8 +38,8 @@ def summarize():
         if not transcript:
             return jsonify({'error': 'Transcript is required'}), 400
         
-        # Check if Groq client is available
-        if not groq_client:
+        # Check if API key is available
+        if not api_key:
             return jsonify({'error': 'AI service is not available. Please check your API key configuration.'}), 500
         
         # Create the prompt for Groq
@@ -72,20 +56,41 @@ def summarize():
         """
         
         try:
-            # Generate summary using Groq
-            response = groq_client.chat.completions.create(
-                messages=[
+            # Generate summary using Groq API directly
+            payload = {
+                "model": "llama3-8b-8192",
+                "messages": [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                model="llama3-8b-8192",
-                temperature=0.7,
-                max_tokens=2000
+                "temperature": 0.7,
+                "max_tokens": 2000
+            }
+            
+            response = requests.post(
+                GROQ_API_URL,
+                headers=GROQ_HEADERS,
+                json=payload,
+                timeout=30
             )
             
-            summary = response.choices[0].message.content
+            if response.status_code == 200:
+                result = response.json()
+                summary = result['choices'][0]['message']['content']
+                print(f"✅ AI summarization successful!")
+            else:
+                error_msg = f"Groq API error: {response.status_code} - {response.text}"
+                print(f"❌ {error_msg}")
+                return jsonify({'error': error_msg}), 500
+                
+        except requests.exceptions.RequestException as e:
+            error_msg = f'Network error: {str(e)}'
+            print(f"❌ {error_msg}")
+            return jsonify({'error': error_msg}), 500
         except Exception as e:
-            return jsonify({'error': f'AI service error: {str(e)}'}), 500
+            error_msg = f'AI service error: {str(e)}'
+            print(f"❌ {error_msg}")
+            return jsonify({'error': error_msg}), 500
         
         return jsonify({
             'summary': summary,
