@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Meeting Notes Summarizer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            background-color: #f4f4f4;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+        
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: #fafafa;
+        }
+        
+        .section h2 {
+            color: #555;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        textarea, input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        
+        textarea {
+            min-height: 150px;
+            resize: vertical;
+        }
+        
+        .button-group {
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        button {
+            background: #007bff;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 0 10px;
+            transition: background 0.3s;
+        }
+        
+        button:hover {
+            background: #0056b3;
+        }
+        
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .summary-section {
+            background: #e8f4fd;
+            border-color: #007bff;
+        }
+        
+        .summary-content {
+            background: white;
+            padding: 20px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            min-height: 200px;
+            white-space: pre-wrap;
+        }
+        
+        .loading {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+        }
+        
+        .error {
+            color: #dc3545;
+            background: #f8d7da;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        
+        .success {
+            color: #155724;
+            background: #d4edda;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        
+        .email-form {
+            display: none;
+        }
+        
+        .email-form.show {
+            display: block;
+        }
+        
+        .recipients-input {
+            margin-bottom: 15px;
+        }
+        
+        .recipients-input input {
+            margin-bottom: 10px;
+        }
+        
+        .add-recipient {
+            background: #28a745;
+            padding: 8px 15px;
+            font-size: 14px;
+        }
+        
+        .remove-recipient {
+            background: #dc3545;
+            padding: 5px 10px;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 AI Meeting Notes Summarizer</h1>
+        
+        <!-- Input Section -->
+        <div class="section">
+            <h2>📝 Upload Meeting Transcript</h2>
+            <label for="transcript">Meeting Transcript:</label>
+            <textarea id="transcript" placeholder="Paste your meeting transcript, call recording transcript, or any text content here..."></textarea>
+            
+            <label for="customInstruction">Custom Instructions:</label>
+            <textarea id="customInstruction" placeholder="e.g., 'Summarize in bullet points for executives', 'Highlight only action items', 'Create a timeline of events', etc."></textarea>
+            
+            <div class="button-group">
+                <button id="generateBtn" onclick="generateSummary()">🚀 Generate Summary</button>
+            </div>
+        </div>
+        
+        <!-- Summary Section -->
+        <div class="section summary-section" id="summarySection" style="display: none;">
+            <h2>📋 Generated Summary</h2>
+            <div id="summaryContent" class="summary-content"></div>
+            
+            <div class="button-group">
+                <button onclick="editSummary()">✏️ Edit Summary</button>
+                <button onclick="showEmailForm()">📧 Share via Email</button>
+            </div>
+        </div>
+        
+        <!-- Email Form Section -->
+        <div class="section email-form" id="emailForm">
+            <h2>📧 Share Summary</h2>
+            <div class="recipients-input">
+                <label>Recipients:</label>
+                <div id="recipientsList">
+                    <input type="email" class="recipient-email" placeholder="Enter email address" required>
+                </div>
+                <button class="add-recipient" onclick="addRecipient()">+ Add Recipient</button>
+            </div>
+            
+            <label for="emailSubject">Subject:</label>
+            <input type="text" id="emailSubject" value="Meeting Summary" placeholder="Email subject">
+            
+            <div class="button-group">
+                <button onclick="shareSummary()">📤 Send Summary</button>
+                <button onclick="hideEmailForm()">❌ Cancel</button>
+            </div>
+        </div>
+        
+        <!-- Status Messages -->
+        <div id="statusMessage"></div>
+    </div>
+
+    <script>
+        let currentSummary = '';
+        
+        async function generateSummary() {
+            const transcript = document.getElementById('transcript').value.trim();
+            const customInstruction = document.getElementById('customInstruction').value.trim();
+            
+            if (!transcript) {
+                showStatus('Please enter a transcript to summarize.', 'error');
+                return;
+            }
+            
+            const generateBtn = document.getElementById('generateBtn');
+            generateBtn.disabled = true;
+            generateBtn.textContent = '🔄 Generating...';
+            
+            try {
+                const response = await fetch('/api/summarize', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        transcript: transcript,
+                        custom_instruction: customInstruction || 'Provide a clear summary of the meeting'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    currentSummary = data.summary;
+                    document.getElementById('summaryContent').textContent = currentSummary;
+                    document.getElementById('summarySection').style.display = 'block';
+                    showStatus('Summary generated successfully!', 'success');
+                } else {
+                    showStatus('Error: ' + data.error, 'error');
+                }
+            } catch (error) {
+                showStatus('Error: ' + error.message, 'error');
+            } finally {
+                generateBtn.disabled = false;
+                generateBtn.textContent = '🚀 Generate Summary';
+            }
+        }
+        
+        function editSummary() {
+            const summaryContent = document.getElementById('summaryContent');
+            const currentText = summaryContent.textContent;
+            
+            summaryContent.innerHTML = `<textarea id="editableSummary" style="width: 100%; min-height: 200px; padding: 10px;">${currentText}</textarea>`;
+            
+            const editBtn = document.querySelector('button[onclick="editSummary()"]');
+            editBtn.textContent = '💾 Save Changes';
+            editBtn.onclick = saveSummary;
+        }
+        
+        function saveSummary() {
+            const editableSummary = document.getElementById('editableSummary');
+            currentSummary = editableSummary.value;
+            
+            const summaryContent = document.getElementById('summaryContent');
+            summaryContent.textContent = currentSummary;
+            
+            const saveBtn = document.querySelector('button[onclick="saveSummary()"]');
+            saveBtn.textContent = '✏️ Edit Summary';
+            saveBtn.onclick = editSummary;
+            
+            showStatus('Summary updated successfully!', 'success');
+        }
+        
+        function showEmailForm() {
+            document.getElementById('emailForm').classList.add('show');
+        }
+        
+        function hideEmailForm() {
+            document.getElementById('emailForm').classList.remove('show');
+        }
+        
+        function addRecipient() {
+            const recipientsList = document.getElementById('recipientsList');
+            const newRecipient = document.createElement('div');
+            newRecipient.innerHTML = `
+                <input type="email" class="recipient-email" placeholder="Enter email address" required>
+                <button class="remove-recipient" onclick="removeRecipient(this)">Remove</button>
+            `;
+            recipientsList.appendChild(newRecipient);
+        }
+        
+        function removeRecipient(button) {
+            button.parentElement.remove();
+        }
+        
+        async function shareSummary() {
+            const recipients = Array.from(document.querySelectorAll('.recipient-email'))
+                .map(input => input.value.trim())
+                .filter(email => email);
+            
+            const subject = document.getElementById('emailSubject').value.trim();
+            
+            if (recipients.length === 0) {
+                showStatus('Please add at least one recipient.', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/share', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        summary: currentSummary,
+                        recipients: recipients,
+                        subject: subject
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showStatus('Summary shared successfully!', 'success');
+                    hideEmailForm();
+                } else {
+                    showStatus('Error: ' + data.error, 'error');
+                }
+            } catch (error) {
+                showStatus('Error: ' + error.message, 'error');
+            }
+        }
+        
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('statusMessage');
+            statusDiv.innerHTML = `<div class="${type}">${message}</div>`;
+            
+            setTimeout(() => {
+                statusDiv.innerHTML = '';
+            }, 5000);
+        }
+    </script>
+</body>
+</html> 
