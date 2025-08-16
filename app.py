@@ -18,11 +18,16 @@ CORS(app)
 api_key = os.getenv('GROQ_API_KEY')
 if not api_key:
     print("❌ GROQ_API_KEY not found in environment variables")
-    print("Please check your .env file")
-    exit(1)
-
-groq_client = groq.Groq(api_key=api_key)
-print(f"✅ Groq client initialized with API key: {api_key[:10]}...")
+    print("Please check your environment variables")
+    # Don't exit in production, just log the error
+    groq_client = None
+else:
+    try:
+        groq_client = groq.Groq(api_key=api_key)
+        print(f"✅ Groq client initialized with API key: {api_key[:10]}...")
+    except Exception as e:
+        print(f"❌ Error initializing Groq client: {e}")
+        groq_client = None
 
 @app.route('/')
 def index():
@@ -38,6 +43,10 @@ def summarize():
         if not transcript:
             return jsonify({'error': 'Transcript is required'}), 400
         
+        # Check if Groq client is available
+        if not groq_client:
+            return jsonify({'error': 'AI service is not available. Please check your API key configuration.'}), 500
+        
         # Create the prompt for Groq
         system_prompt = """You are an expert meeting summarizer. Create a clear, structured summary based on the user's custom instruction. 
         Format the response in a clean, readable way that matches the user's requirements."""
@@ -51,18 +60,21 @@ def summarize():
         Please provide a summary based on the custom instruction above.
         """
         
-        # Generate summary using Groq
-        response = groq_client.chat.completions.create(
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
-            ],
-            model="llama3-8b-8192",
-            temperature=0.7,
-            max_tokens=2000
-        )
-        
-        summary = response.choices[0].message.content
+        try:
+            # Generate summary using Groq
+            response = groq_client.chat.completions.create(
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                model="llama3-8b-8192",
+                temperature=0.7,
+                max_tokens=2000
+            )
+            
+            summary = response.choices[0].message.content
+        except Exception as e:
+            return jsonify({'error': f'AI service error: {str(e)}'}), 500
         
         return jsonify({
             'summary': summary,
