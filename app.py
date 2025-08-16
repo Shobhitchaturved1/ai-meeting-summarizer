@@ -16,18 +16,29 @@ CORS(app)
 
 # Initialize Groq client
 api_key = os.getenv('GROQ_API_KEY')
+print(f"🔍 Checking API key: {'Found' if api_key else 'NOT FOUND'}")
+if api_key:
+    print(f"🔑 API key starts with: {api_key[:10]}...")
+
 if not api_key:
     print("❌ GROQ_API_KEY not found in environment variables")
     print("Please check your environment variables")
-    # Don't exit in production, just log the error
     groq_client = None
 else:
     try:
+        # Use a more compatible initialization method
         groq_client = groq.Groq(api_key=api_key)
         print(f"✅ Groq client initialized with API key: {api_key[:10]}...")
     except Exception as e:
         print(f"❌ Error initializing Groq client: {e}")
-        groq_client = None
+        print("Trying alternative initialization...")
+        try:
+            # Alternative initialization without extra parameters
+            groq_client = groq.Groq(api_key=api_key)
+            print(f"✅ Groq client initialized (alternative method)")
+        except Exception as e2:
+            print(f"❌ Alternative initialization also failed: {e2}")
+            groq_client = None
 
 @app.route('/')
 def index():
